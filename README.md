@@ -12,7 +12,7 @@ In Elixir , everything is broken down into functions , the smaller , the better 
 
 ### Installing Elixir
 
-[`Installing Elixir`](http://elixir-lang.org/install.html)
+[`Installing Elixir Documentation`](http://elixir-lang.org/install.html)
 
 ### IEX - Interactive Elixir
 
@@ -58,3 +58,27 @@ end.
 
     ```
 ````
+
+### Compiling And Running Elixir
+
+We can have elixir code in source files , here, you will note they either end with .ex or .exs , files ending in .ex are intended to be compiled into
+bytecodes and then run, whereas those ending in .exs are more like programs
+in scripting languages , tests also end in .exs as we dont need to keep compiled versions of tests .
+
+#### First Program
+
+Create a folder called learning_elixir and inside it another function called hello_world .
+Inside hello_world , create a file called hello.exs and inside it .
+
+```sh
+mkdir learning_elixir
+cd learning_elixir
+mkdir hello_world
+cd hello_world
+touch hello.exs
+code .
+```
+
+```
+
+```
