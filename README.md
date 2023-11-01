@@ -132,4 +132,30 @@ iex> c
 
 ```
 
+````
 
+#### Ignoring A Value with the underscore
+
+If we didn’t need to capture a value during the match, we could use the special
+variable \_ (an underscore)'
+
+```sh
+
+iex> ["a", _, _] = ["a", "b", "c"]
+["a", "b", "c"]
+
+```
+
+#### Variables Bind Once (per Match)
+
+Once a variable has been bound to a value in the matching process, it keeps
+that value for the remainder of the match.
+
+For example if we have
+
+```sh
+
+[b, b] = [1,3]
+```
+
+We will get an error as b cannot have 2 values
