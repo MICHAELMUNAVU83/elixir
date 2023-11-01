@@ -43,7 +43,7 @@ r - reload
 We use h to get help on elixir functions , eg `IO.puts`
 If you run `h IO.puts` , you will get
 
-````sh
+```sh
 
 Writes item to the given device, similar to write/2, but adds a newline at the
 end.
@@ -56,8 +56,8 @@ end.
     #=> error
 
 
-    ```
-````
+
+```
 
 ### Compiling And Running Elixir
 
@@ -82,3 +82,54 @@ code .
 ```
 
 ```
+
+Inside the file , write
+
+```sh
+
+IO.puts "Hello World"
+
+```
+
+Now to run this , we can run
+
+```sh
+elixir hello.exs
+```
+
+### Pattern Matching
+
+#### Variables
+
+Let us look at `a = 2 ` , in this case ,
+the left-hand side is a variable and the right-hand side is an
+integer literal,
+
+= is the symbol the match operator
+
+#### Lists
+
+Lists are created by using squared brackets , seperating the elements by commas , think of them as arrays
+
+```sh
+[1,2,3]
+```
+
+Pattern matching for lists looks like
+
+````sh
+
+iex> list = [1, 2, 3]
+[1, 2, 3]
+iex> [a, b, c ] = list
+[1, 2, 3]
+iex> a
+1
+iex> b
+2
+iex> c
+3
+
+    ```
+
+````
