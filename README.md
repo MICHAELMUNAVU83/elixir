@@ -48,13 +48,13 @@ If you run `h IO.puts` , you will get
 Writes item to the given device, similar to write/2, but adds a newline at the
 end.
 
-     ```sh
+
     IO.puts("Hello World!")
     #=> Hello World!
 
     IO.puts(:stderr, "error")
     #=> error
-    ```
+
 
     ```
 ````
