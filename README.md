@@ -159,3 +159,124 @@ For example if we have
 ```
 
 We will get an error as b cannot have 2 values
+
+### Immutabilty
+
+#### What is Immutability
+
+Immutability means that data cannot be altered once created. In Elixir, functions are designed to take some data as input and return a new version of that data as output, without changing the original data.
+
+Such that we have
+
+```sh
+iex> name = "elixir"
+"elixir"
+iex> cap_name = String.capitalize name
+"Elixir"
+iex> name
+"elixir"
+```
+
+## Elixir Built In Types
+
+Elixir’s built-in types are
+• Value types:
+– Arbitrary-sized integers
+– Floating-point numbers
+– Atoms
+– Ranges
+– Regular expressions
+• System types:
+– PIDs and ports
+– References
+• Collection types:
+– Tuples
+– Lists
+– Maps
+– Binaries
+
+### Value Types
+
+These represent numbers , ranges , names and regular expressions
+
+#### Integers
+
+Integer literals can be written as decimal (1234), hexadecimal (0xcafe), octal
+(0o765), and binary (0b1010).
+
+#### Floating-Point Numbers
+
+Floating-point numbers are written using a decimal point.
+
+#### Atoms
+
+Atoms are constants that represent something’s name. An atom’s name is its value . They have a colon (:) in front of them
+
+```sh
+
+:teamlead , :name , :age
+
+
+```
+
+#### Ranges
+
+Ranges are represented as start..end, where start and end are integers.
+
+#### Regular Expressions (Regex)
+
+Regular expressions are represented as ~r{regex} or ~r{regex}opts where
+regex is the regular expression and opts are regular expression options.
+
+Examples
+
+```sh
+iex> Regex.run ~r{[aeiou]}, "caterpillar"
+["a"]
+
+```
+
+### System Types
+
+These reflect the underlying resources in the Erlang VM .
+
+#### PIDs and Ports
+
+PID is a process ID and a reference to a local process while ports are references to resources outside the Erlang VM.
+
+### Collection Types
+
+Elixir collections can hold values of any type
+
+#### Tuples
+
+Tuples are ordered collection of values , You write a tuple between braces, separating the elements with commas.
+
+{1 , 2}
+
+#### Lists
+
+Lists may look like arrays in other languages but tuples in elixir are closest to what we may call arrays .
+A list is a linked data structure , they have a head and a tail .
+
+Examples
+
+```sh
+iex> [1,2 ,3]
+[ 1,2 ,3]
+
+```
+
+#### Keyword Lists
+
+Here we have key pair values , we have a value represented by a key , this can be written in 2 ways .
+
+```sh
+iex> [ name: "Dave", city: "Dallas", likes: "Programming" ]
+ [ name: "Dave", city: "Dallas", likes: "Programming" ]
+
+
+ iex> [ {:name, "Dave"}, {:city, "Dallas"}, {:likes, "Programming"} ]
+ [ name: "Dave", city: "Dallas", likes: "Programming" ]
+
+```
