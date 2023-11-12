@@ -2,6 +2,8 @@
 
 Elixir is a functional language with immutable state
 
+## BASICS
+
 ### Difference with OOP and FP
 
 In OOP , we hide data in Classes , objects and we worry about not changing state , In Elixir , We want to transform data from one form to another , we don't care about state , we care about data transformation .
@@ -280,3 +282,243 @@ iex> [ name: "Dave", city: "Dallas", likes: "Programming" ]
  [ name: "Dave", city: "Dallas", likes: "Programming" ]
 
 ```
+
+#### Maps
+
+A map is a collection of key value pairs and it looksas such
+
+%{ key => value, key => value }
+
+You can have them such as
+
+```sh
+iex> colors = %{ :red => 0xff0000, :green => 0x00ff00, :blue => 0x0000ff }
+%{blue: 255, green: 65280, red: 16711680}
+
+
+```
+
+##### Accessing A Map
+
+You can extract the value of each map with its key , the square bracket syntax works .
+
+You have map["value"]
+
+```sh
+iex> colors = %{ :red => 0xff0000, :green => 0x00ff00, :blue => 0x0000ff }
+%{blue: 255, green: 65280, red: 16711680}
+
+iex> colors[:red]
+16711680
+
+```
+
+If the keys are atoms, you can also use a dot notation:
+
+```sh
+iex> colors = %{ :red => 0xff0000, :green => 0x00ff00, :blue => 0x0000ff }
+%{blue: 255, green: 65280, red: 16711680}
+
+iex> colors.red
+16711680
+
+```
+
+#### Binaries
+
+Used when you need to access data as a sequence of bits and bytes .
+Elixir supports this with a binary data type enclosed between << >>
+
+```sh
+iex> bin = << 1, 2 >>
+<<1, 2>>
+iex> byte_size bin
+2
+
+```
+
+### Dates and Times
+
+Elixir 1.5 has a Calender module , it represents the rules used to manipulate dates
+
+```sh
+iex> d1 = Date.new(2018, 12, 25)
+{:ok, ~D[2018-12-25]}
+```
+
+The Time type contains an hour, a minute, a second, and fractions of a second.
+
+```sh
+iex> {:ok, t1} = Time.new(12, 34, 56)
+{:ok, ~T[12:34:56]}
+```
+
+There are two date/time types: DateTime and NaiveDateTime. The naive version
+contains just a date and a time; DateTime adds the ability to associate a time
+zone.
+
+### Names, Source Files, Conventions, Operators
+
+Identifiers in elixir start with a letter or an underscore followed by letters , digits or underscores .
+
+Module, record, protocol, and behavior names start with an uppercase letter
+and are BumpyCase. All other identifiers start with a lowercase letter or an
+underscore, and by convention use underscores between words.
+
+#### Truth
+
+Elixir has three special values related to Boolean operations: true, false, and
+nil.
+In most context , any value other than false or nil is treated as true .
+
+#### Operators
+
+Can be broken down into
+
+##### Comparison operators
+
+```sh
+a === b # strict equality (so 1 === 1.0 is false)
+a !== b # strict inequality (so 1 !== 1.0 is true)
+a == b # value equality (so 1 == 1.0 is true)
+a != b # value inequality (so 1 != 1.0 is false)
+a > b # normal comparison
+a >= b # :
+a < b # :
+a <= b # :
+```
+
+##### Boolean Operators
+
+These operators expect true or false as their first argument
+
+```sh
+a or b # true if a is true; otherwise b
+a and b # false if a is false; otherwise b
+not a # false if a is true; true otherwise
+```
+
+##### Relaxed Boolean Operators
+
+Here ,Any value apart from nil or
+false is interpreted as true
+
+```sh
+a || b # a if a is truthy; otherwise b
+a && b # b if a is truthy; otherwise a
+!a # false if a is truthy; otherwise true
+```
+
+##### Arithmetic Operators
+
+- - - / div rem
+      Integer division yields a floating-point result. Use div(a,b) to get an integer.
+
+      for div , the format is div(dividen , divisor) , same as that for rem
+
+```sh
+iex> 20/2
+10.0
+iex> div(20,2)
+10
+iex> rem(20,2)
+0
+
+
+```
+
+##### Join operators
+
+binary1 <> binary2 # concatenates strings and binaries
+
+list1 ++ list2 # concatenates two lists
+list1 -- list2 # removes elements of list 2 from a copy of list 1
+
+Examples
+
+```sh
+iex(17)> <<1, 2>> <> << 2, 3>>
+<<1, 2, 2, 3>>
+iex(18)> [1 ,2] ++ [3,4]
+[1, 2, 3, 4]
+iex(19)> [1 ,2] -- [4]
+[1, 2]
+iex(20)> [1 ,2] -- [2]
+[1]
+iex(21)>
+```
+
+##### in operator
+
+The in operator , checks if a value is in a list , returns true or false .
+
+a in enum
+
+```sh
+iex(21)> 2  in [2,3,4]
+true
+iex(22)> 3 in [1,2]
+false
+iex(23)>
+```
+
+#### Variable Scope
+
+Elixir is lexically scoped. The basic unit of scoping is the function body.
+Variables defined in a function (including its parameters) are local to that
+function.
+
+#### Do Block Scope
+
+In elixir , we can group functions with the do block
+
+```sh
+
+line_no = 50
+# ...
+if (line_no == 50) do
+IO.puts "new-page\f"
+line_no = 0
+end
+
+
+```
+
+#### The With Expression
+
+The with expression allows you to define a local
+scope for variables. If you need a couple of temporary variables when calculating something, and you don’t want those variables to leak out into the
+wider scope . It also gives you some control over pattern-matching
+failures.
+Used as 'with' and 'do ' so
+
+with `correct match` do `something`
+
+```sh
+
+iex> person = %{age: 70, first_name: "Bill", last_name: "Murray"}
+
+iex> with {:ok, first_name} <- Map.fetch(person, :first_name),
+...>      {:ok, last_name} <- Map.fetch(person, :last_name) do
+...>   "#{first_name} #{last_name}"
+...> end
+"Bill Murray"
+
+
+
+```
+
+## FUNCTIONS
+
+### Anonymous Functions
+
+This is created using the `fn` keyword .
+
+It has a parameter list and a body , seperated by ->
+
+```sh
+iex> sum = fn (a, b) -> a + b end
+#Function<12.17052888 in :erl_eval.expr/5>
+iex> sum.(1, 2)
+3
+````
