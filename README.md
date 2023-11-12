@@ -162,6 +162,23 @@ For example if we have
 
 We will get an error as b cannot have 2 values
 
+We can force Elixir to use the existing value of the variable
+in the pattern? Prefix it with ^ (a caret). In Elixir, we call this the pin operator.
+
+```sh
+iex(41)> a = 1
+1
+iex(42)> a = 2
+2
+iex(43)> ^a = 1
+** (MatchError) no match of right hand side value: 1
+    (stdlib 5.0.2) erl_eval.erl:498: :erl_eval.expr/6
+    iex:43: (file)
+iex(43)> ^a = 2
+2
+iex(44)>
+```
+
 ### Immutabilty
 
 #### What is Immutability
@@ -521,4 +538,384 @@ iex> sum = fn (a, b) -> a + b end
 #Function<12.17052888 in :erl_eval.expr/5>
 iex> sum.(1, 2)
 3
-````
+```
+
+Notice how we call the anonymous function. The dot indicates the function call, and the arguments are passed between
+parentheses. (You’ll have noticed we don’t use a dot for named function
+calls—this is a difference between named and anonymous functions.)
+
+If your function takes no arguments, you still need the parentheses to call it:
+
+```sh
+iex> greet = fn -> IO.puts "Hello" end
+#Function<12.17052888 in :erl_eval.expr/5>
+iex> greet.()
+Hello
+:ok
+
+```
+
+#### Pattern Matching
+
+In elixir , we don't do assignments , `a = 2` , we do not assign `2` to `a` , however , we are matching `2` with `a`.
+Elixir tries to match values to patterns and binds a key to a value .
+
+```sh
+
+iex> swap = fn { a, b } -> { b, a } end
+#Function<12.17052888 in :erl_eval.expr/5>
+iex> swap.( { 6, 8 } )
+{8, 6}
+```
+
+#### One Function multiple bodies
+
+We can use pattern matching to select which clause to run when a function has many bodies
+
+```sh
+my_function = fn
+  0  -> "Zero"
+  x when rem(x, 2) == 0 -> "Even"
+  x -> "Odd"
+end
+
+IO.puts my_function.(0)    # Output: "Zero"
+IO.puts my_function.(4)    # Output: "Even"
+IO.puts my_function.(7)    # Output: "Odd"
+```
+
+Write a function that takes three arguments. If the first two are zero,
+return “FizzBuzz.” If the first is zero, return “Fizz.” If the second is zero,
+return “Buzz.”
+
+```sh
+my_function = fn
+  0 , 0 , x  -> "Fizzbuzz"
+  0, x, x -> "Fizz"
+  x, 0,x  -> "Odd"
+end
+
+```
+
+#### Functions Can Return Functions
+
+```sh
+fun1 = fn ->
+fn ->
+"Hello"
+end
+end
+
+
+```
+
+To get "Hello" in this case , we have to call it as such .
+
+```sh
+iex> fun1.().()
+"Hello"
+```
+
+#### Passing functions as parameters
+
+Functions return values so we can pass them as parameters .
+
+```sh
+#Function<12.17052888 in :erl_eval.expr/5>
+iex> apply = fn (fun, value) -> fun.(value) end
+#Function<12.17052888 in :erl_eval.expr/5>
+iex> apply.(times_2, 6)
+12
+```
+
+Here, apply is a function that takes a second function and a value. It returns
+the result of invoking that second function with the value as an argument.
+
+#### Pinned Values and Function Parameters
+
+When we originally looked at pattern matching, we saw that the pin operator
+(^) allowed us to use the current value of a variable in a pattern. You can use
+this with function parameters, too.
+
+```sh
+check_same = fn
+  a, ^a -> "Both parameters are the same: #{a}"
+  a, b -> "Parameters are different: #{a} and #{b}"
+end
+
+IO.puts check_same.(3, 3)  # Output: "Both parameters are the same: 3"
+IO.puts check_same.(2, 4)  # Output: "Parameters are different: 2 and 4"
+
+```
+
+#### The & Notation
+
+The strategy of creating short helper functions is so common that Elixir provides a shortcut
+
+The & operator converts the expression that follows into a function. Inside
+that expression, the placeholders &1, &2, and so on correspond to the first,
+second, and subsequent parameters of the function. So `&(&1 + &2)` will be
+converted to `fn p1, p2 -> p1 + p2` end.
+
+```sh
+
+iex> add_one = &(&1 + 1) # same as add_one = fn (n) -> n + 1 end
+#Function<6.17052888 in :erl_eval.expr/5>
+iex> add_one.(44)
+45
+```
+
+The & capture operator works with string (and string-like) literals:
+
+```sh
+iex> s = &"bacon and #{&1}"
+#Function<6.99386804/1 in :erl_eval.expr/5>
+iex> s.("custard")
+"bacon and custard"
+
+```
+
+### Modules and Named Functions
+
+Modules are a way of grouping certain functions .
+
+```sh
+defmodule Times do
+  def double(n) do
+   n * 2
+  end
+end
+```
+
+#### Compiling a module
+
+```sh
+defmodule Times do
+  def double(n) do
+   n * 2
+  end
+end
+
+
+```
+
+If this is inside timex.ex , to call this function we run
+
+```sh
+$ iex times.exs
+iex> Times.double(4)
+8
+```
+
+Give IEx a source file’s name, and it compiles and loads the file before it displays a prompt .
+If you’re already in IEx, you can use the c helper to compile your file without
+returning to the command line.
+
+```sh
+iex> c "times.exs"
+[Times]
+iex> Times.double(4)
+8
+iex> Times.double(123)
+246
+The line c "times.exs" compiles your source file and loads it into IEx
+```
+
+#### Function Calls and Pattern Matching
+
+We can have a function of the same name do different things depending on the parameter passed because of pattern matching as such .
+
+```sh
+defmodule Factorial do
+  def of(0), do: 1
+  def of(n), do: n * of(n-1)
+end
+
+```
+
+If we run this we get
+
+```sh
+iex> Factorial.of(3)
+6
+iex> Factorial.of(7)
+5040
+iex> Factorial.of(0)
+1
+```
+
+#### Guard Clauses
+
+These are used when we need to distinguish functions based on the argument types or some external test .
+
+```sh
+defmodule Guard do
+def what_is(x) when is_number(x) do
+IO.puts "#{x} is a number"
+end
+def what_is(x) when is_list(x) do
+IO.puts "#{inspect(x)} is a list"
+end
+def what_is(x) when is_atom(x) do
+IO.puts "#{x} is an atom"
+end
+end
+Guard.what_is(99) # => 99 is a number
+Guard.what_is(:cat) # => cat is an atom
+Guard.what_is([1,2,3]) # => [1,2,3] is a list
+```
+
+##### Guard Clause Limitations
+
+###### Comparison operators
+
+==, !=, ===, !==, >, <, <=, >=
+
+###### Boolean and negation operators
+
+or, and, not, !. Note that || and && are not allowed.
+
+###### Arithmetic operators
+
++, -, \*, /
+
+###### Join operators
+
+<> and ++, as long as the left side is a literal
+
+###### The in operator
+
+Membership in a collection or range
+
+###### Type-check functions
+
+These built-in Erlang functions return true if their argument is a given
+type. You can find their documentation online.2
+is_atom is_binary is_bitstring is_boolean is_exception is_float
+is_function is_integer is_list is_map is_number is_pid
+is_port is_record is_reference is_tuple
+
+#### Default Parameters
+
+When you define a named function, you can give a default value to any of its
+parameters by using the syntax param \\ value.
+
+```sh
+defmodule Example do
+def func(p1, p2 \\ 2, p3 \\ 3, p4) do
+IO.inspect [p1, p2, p3, p4]
+end
+end
+
+Example.func("a", "b") # => ["a",2,3,"b"]
+Example.func("a", "b", "c") # => ["a","b",3,"c"]
+Example.func("a", "b", "c", "d") # => ["a","b","c","d"]
+
+```
+
+#### Private Functions
+
+The defp macro defines a private function—one that can be called only within
+the module that declares it.
+
+#### The Pipe Operator
+
+The |> operator takes the result of the expression to its left and inserts it as
+the first parameter of the function invocation to its right.
+
+```sh
+
+ def test do
+    (2 + 2)
+    |> (fn x -> x * x end).()
+ end
+
+```
+
+#### Modules
+
+Modules provide namespaces for things you define. We’ve already seen them
+encapsulating named functions. They also act as wrappers for macros, structs,
+protocols, and other modules.
+
+##### The import Directive
+
+The import directive brings a module’s functions and/or macros into the current
+scope.
+
+The syntax is
+`import Module [, only:|except: ] `
+
+##### The alias Directive
+
+The alias directive creates an alias for a module
+
+The syntax is
+`alias Module , as: ModuleName`
+
+##### The require Directive
+
+You require a module if you want to use any macros it defines. This ensures
+that the macro definitions are available when your code is compiled
+
+#### Module Attributes
+
+Elixir modules each have associated metadata. Each item of metadata is
+called an attribute of the module and is identified by a name. Inside a module,
+you can access these attributes by prefixing the name with an at sign (@)
+
+Think of it as a variable that can be accessed in that module
+
+```sh
+ defmodule Example do
+@author "Dave Thomas"
+def get_author do
+@author
+end
+end
+IO.puts "Example was written by #{Example.get_author}"
+```
+
+You can set the same attribute multiple times in a module
+
+```sh
+defmodule Example do
+@attr "one"
+def first, do: @attr
+@attr "two"
+def second, do: @attr
+end
+IO.puts "#{Example.second} #{Example.first}" # => two one
+```
+
+## Lists and Recursion
+
+### Heads and Tails
+
+A list can either be empty or have a tail and a head . The
+head contains a value and the tail is itself a list
+
+```sh
+iex> [a, b, c ] = [ 1, 2, 3 ]
+[1, 2, 3]
+iex> a
+1
+iex> b
+2
+iex> c
+3
+```
+
+We can also use the pipe character in the pattern. What’s to the left of it
+matches the head value of the list, and what’s to the right matches the tail.
+
+```sh
+iex> [ head | tail ] = [ 1, 2, 3 ]
+[1, 2, 3]
+iex> head
+1
+iex> tail
+[2, 3]
+```
+
+
