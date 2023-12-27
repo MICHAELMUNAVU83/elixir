@@ -1229,3 +1229,218 @@ Elements can be inserted using MapSet.put/2:
     MapSet.new([0, 2, 4])
 
 ```````
+
+<!--
+Have Enums and Streams here -->
+
+### Strings and Binaries
+
+Elixir has two kinds of string: single-quoted and double-quoted. They differ significantly in their internal representation. But they also have many things in common.
+
+#### Sigils
+
+Sigils
+Like Ruby, Elixir has an alternative syntax for some literals. We’ve already seen it with regular expressions, where we wrote ~r{...}. In Elixir, these ~-style literals are called sigils (symbols with magical powers)
+
+The letter determines the sigil’s type:
+~C A character list with no escaping or interpolation
+~c A character list, escaped and interpolated just like a single-quoted string ~D A Date in the format yyyy-mm-dd
+~N A naive (raw) DateTime in the format yyyy-mm-dd hh:mm:ss[.ddd]
+~R A regular expression with no escaping or interpolation
+~r A regular expression, escaped and interpolated
+~S A string with no escaping or interpolation
+~s A string, escaped and interpolated just like a double-quoted string
+~T A Time in the format hh:mm:ss[.dddd]
+~W A list of whitespace-delimited words, with no escaping or interpolation ~w A list of whitespace-delimited words, with escaping and interpolation
+
+#### Breaking Down strings
+
+Before we get further into this, I need to explain something. In most other languages, you’d call both 'cat' and "cat" strings. And that’s what I’ve been doing so far. But Elixir has a different convention.
+In Elixir, the convention is that we call only double-quoted strings “strings.” The single-quoted form is a character list.
+This is important. The single- and double-quoted forms are very different, and libraries that work on strings work only on the double-quoted form.
+
+#### Single-Quoted Strings—Lists of Character Codes
+
+Single-quoted strings are represented as a list of integer values, each value corresponding to a codepoint in the string. For this reason, we refer to them as character lists (or char lists).
+
+```sh
+iex> str = 'wombat' 'wombat'
+iex> is_list str true
+iex> length str
+6
+iex> [67,65,84]
+~c"CAT"
+```
+
+#### Binaries
+
+The binary type represents a sequence of bits. A binary literal looks like << term,... >>.
+The simplest term is just a number from 0 to 255. The numbers are stored as successive bytes in the binary.
+
+```sh
+iex> b = << 1, 2, 3 >> <<1, 2, 3>>
+iex> byte_size b
+3
+```
+
+#### Double-Quoted Strings Are Binaries
+
+Whereas single-quoted strings are stored as char lists, the contents of a double-quoted string (dqs) are stored as a consecutive sequence of bytes in UTF-8 encoding. Clearly this is more efficient in terms of memory and certain forms of access, but it does have two implications.
+
+#### Strings and Elixir Libraries
+
+When Elixir library documentation uses the word string (and most of the time it uses the word binary), it means double-quoted strings.
+The String module defines functions that work with double-quoted strings
+
+## Control Flow
+
+### if and unless
+
+In Elixir, if and its evil twin, unless, take two parameters: a condition and a keyword list, which can contain the keys do: and else:. If the condition is truthy, the if expression evaluates the code associated with the do: key; otherwise it evaluates the else: code. The else: branch may be absent.
+
+```sh
+iex> if 1 == 1, do: "true part", else: "false part" "true part"
+iex> if 1 == 2, do: "true part", else: "false part" "false part"
+```
+
+```sh
+iex> unless 1 == 1, do: "error", else: "OK" "OK"
+iex> unless 1 == 2, do: "OK", else: "error" "OK"
+```
+
+### case
+
+case lets you test a value against a set of patterns, executes the code associated with the first pattern that matches, and returns the value of that code. The patterns may include guard clauses.
+
+```sh
+
+x = 10
+
+    case x do
+      0 ->
+        "This clause won't match"
+
+
+        10 ->
+        "X is 10"
+
+      _ ->
+        "This clause would not match any value (x = #{x})"
+    end
+
+
+```
+
+### cond
+
+When we need to match conditions rather than values we can turn to cond/1
+
+```sh
+cond do
+  2 + 2 == 5 ->
+    "This will not be true"
+  2 * 2 == 3 ->
+    "Nor this"
+  1 + 1 == 2 ->
+    "But this will"
+end
+"But this will"
+```
+
+### Raising Exception
+
+Elixir exceptions are intended for things that should never happen in normal operation.
+
+```sh
+
+iex> raise "Giving up"
+** (RuntimeError) Giving up
+
+```
+
+<!--
+read about logger -->
+
+## Tooling
+
+### Debugging
+
+The most straightforward tool we have for debugging Elixir code is IEx.
+
+But don’t be fooled by its simplicity - you can solve most of the issues with your application by i
+
+You get the interactive shell in the context of the place you want to debug.
+
+Let’s try it.
+
+To do that, create a file named test.exs and put this into the file:
+
+```sh
+defmodule TestMod do
+  def sum([a, b]) do
+    b = 0
+
+    a + b
+  end
+end
+
+IO.puts(TestMod.sum([34, 65]))
+```
+
+And if you run it - you’ll get an apparent output of 34
+
+```sh
+$ elixir test.exs
+warning: variable "b" is unused (if the variable is not meant to be used, prefix it with an underscore)
+  test.exs:2
+
+34
+
+
+
+
+```
+
+<!-- Read about debugging and breakpoints -->
+
+### Basic Testing
+
+If we have such a module
+
+```sh
+defmodule Stats do
+def sum(vals), do: vals |> Enum.reduce(0, &+/2) def count(vals), do: vals |> length
+def average(vals), do: sum(vals) / count(vals)
+end
+```
+
+Our tests might look something like this:
+
+```sh
+defmodule TestStats do use ExUnit.Case
+test "calculates sum" do
+list = [1, 3, 5, 7, 9] assert Stats.sum(list) == 25
+end
+test "calculates count" do
+list = [1, 3, 5, 7, 9]
+assert Stats.count(list) == 5
+end
+test "calculates average" do
+list = [1, 3, 5, 7, 9]
+assert Stats.average(list) == 5
+end end
+```
+
+#### Test Coverage
+
+Here , we add the dependancy
+{:excoveralls, "~> 0.5.5", only: :test}
+
+Now when we run
+
+```
+mix coveralls
+
+```
+
+We get the test coverage
