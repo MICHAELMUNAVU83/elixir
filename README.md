@@ -1104,3 +1104,128 @@ iex> a3 = %Attendee{}
 ** (RuntimeError) missing name for badge
 
 ```
+
+#### Nested Accessors and Nonstructs
+
+If you are using the nested accessor functions with maps or keyword lists, you can supply the keys as atoms:
+
+```sh
+iex> report = %{ owner: %{ name: "Dave", company: "Pragmatic" }, severity: 1}
+ %{owner: %{company: "Pragmatic", name: "Dave"}, severity: 1}
+iex> put_in(report[:owner][:company], "PragProg")
+%{owner: %{company: "PragProg", name: "Dave"}, severity: 1}
+iex> update_in(report[:owner][:name], &("Mr. " <> &1))
+%{owner: %{company: "Pragmatic", name: "Mr. Dave"}, severity: 1}
+```
+
+If we look at at the these macros , we have , get_in , put_in and update_in and get_and_update_in
+
+```sh
+nested = %{ buttercup: %{
+actor: %{
+first: "Robin", last: "Wright"
+},
+      role: "princess"
+},
+westley: %{
+actor: %{
+first: "Cary", last: "Elwes"
+},
+      role: "farm boy"
+} }
+
+IO.inspect get_in(nested, [:buttercup])
+# => %{actor: %{first: "Robin", last: "Wright"}, role: "princess"}
+IO.inspect get_in(nested, [:buttercup, :actor]) # => %{first: "Robin", last: "Wright"}
+IO.inspect get_in(nested, [:buttercup, :actor, :first]) # => "Robin"
+IO.inspect put_in(nested, [:westley, :actor, :last], "Elwes")
+# => %{buttercup: %{actor: %{first: "Robin", last: "Wright"}, role: "princess"}, # => westley: %{actor: %{first: "Cary", last: "Elwes"}, role: "farm boy"}}
+
+```
+
+### The Access Module
+
+The Access module provides a number of predefined functions to use as parameters to get and get_and_update_in. These functions act as simple filters while traversing the structures.
+The all and at functions only work on lists. all returns all elements in the list, while at returns the nth element (counting from zero).
+
+```sh
+cast = [ %{
+character: "Buttercup", actor: %{
+first: "Robin",
+last: "Wright"
+},
+role: "princess"
+}, %{
+character: "Westley", actor: %{
+first: "Cary",
+last: "Elwes"
+},
+role: "farm boy"
+} ]
+
+IO.inspect get_in(cast, [Access.all(), :character]) #=> ["Buttercup", "Westley"]
+IO.inspect get_in(cast, [Access.at(1), :role]) #=> "farm boy"
+
+```
+
+The elem function works on tuples:
+
+```sh
+cast = %{
+buttercup: {
+actor: {"Robin", "Wright"},
+role: "princess"
+},
+westley: %{
+actor: {"Carey", "Elwes"},
+
+role : "farm boy"
+}
+}
+
+IO.inspect get_in(cast, [Access.key(:westley), :actor, Access.elem(1)]) #=> "Elwes"
+```
+
+Access.pop lets you remove the entry with a given key from a map or keyword list. It returns a tuple containing the value associated with the key and the updated container. nil is returned for the value if the key isn’t in the container.
+
+The name has nothing to do with the pop stack operation.
+
+```sh
+iex> Access.pop(%{name: "Elixir", creator: "Valim"}, :name)
+ {"Elixir", %{creator: "Valim"}}
+iex> Access.pop([name: "Elixir", creator: "Valim"], :name)
+ {"Elixir", [creator: "Valim"]}
+iex> Access.pop(%{name: "Elixir", creator: "Valim"}, :year)
+{nil, %{creator: "Valim", name: "Elixir"}}
+
+```
+
+#### Sets
+
+A set is a data structure that can contain unique elements of any kind, without
+any particular order. MapSet is the "go to" set data structure in Elixir.
+
+A set can be constructed using MapSet.new/0:
+
+```````sh
+
+    iex> MapSet.new()
+    MapSet.new([])
+
+    ```
+
+Elements in a set don't have to be of the same type and they can be populated
+from an enumerable (t:Enumerable.t/0) using MapSet.new/1:
+```sh
+
+    iex> MapSet.new([1, :two, {"three"}])
+    MapSet.new([1, :two, {"three"}])
+    ``````
+
+Elements can be inserted using MapSet.put/2:
+
+
+    iex> MapSet.new([2]) |> MapSet.put(4) |> MapSet.put(0)
+    MapSet.new([0, 2, 4])
+
+```````
