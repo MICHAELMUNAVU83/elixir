@@ -918,4 +918,189 @@ iex> tail
 [2, 3]
 ```
 
+## Maps , Keyword Lists, Sets, and Structs
 
+How to Choose Between Maps, Structs, and Keyword Lists
+Ask yourself these questions (in this order):
+• Do I want to pattern-match against the contents (for example, matching
+a dictionary that has a key of :name somewhere in it)?
+If so, use a map.
+• Will I want more than one entry with the same key?
+If so, you’ll have to use the Keyword module.
+• Do I need to guarantee the elements are ordered?
+If so, again, use the Keyword module.
+• Do I have a fixed set of fields (that is, is the structure of the data always
+the same)?
+If so, use a struct.
+• Otherwise, if you’ve reached this point,
+
+Use a map.
+
+### Keyword Lists
+
+A keyword list is a list that consists exclusively of two-element tuples.
+
+The first element of these tuples is known as the _key_, and it must be an
+atom. The second element, known as the _value_, can be any term.
+For example, the following is a keyword list:
+
+```````sh
+
+    [{:exit_on_close, true}, {:active, :once}, {:packet_size, 1024}]
+
+    ``````
+```````
+
+### Maps
+
+Maps can be created with the %{} syntax, and key-value pairs can be expressed
+as key => value:
+
+```````sh
+    iex> %{}
+    %{}
+    iex> %{"one" => :two, 3 => "four"}
+    %{3 => "four", "one" => :two}
+``````
+```````
+
+#### Pattern Matching And Updating Maps
+
+The question we most often ask of our maps is, “Do you have the following keys (and maybe values)?” For example, given this map:
+
+```sh
+person = %{ name: "Dave", height: 1.88 }
+
+```
+
+• Is there an entry with the key :name?
+
+```sh
+iex> %{ name: a*name } = person %{height: 1.88, name: "Dave"} iex> a_name
+"Dave"
+```
+
+• Are there entries for the keys :name and :height?
+
+```sh
+iex> %{ name: \*, height: _ } = person
+%{height: 1.88, name: "Dave"}
+```
+
+• Does the entry with key :name have the value "Dave"?
+
+```sh
+iex> %{ name: "Dave" } = person
+%{height: 1.88, name: "Dave"}
+```
+
+Our map does not have the key :weight, so the following pattern match fails:
+
+```sh
+ iex> %{ name: \_, weight: \_ } = person
+\*\* (MatchError) no match of right hand side value: %{height: 1.88, name: "Dave"}
+
+```
+
+#### Pattern Matching Can’t Bind Keys
+
+You can’t bind a value to a key during pattern matching. You can write this:
+
+```sh
+iex> %{ 2 => state } = %{ 1 => :ok, 2 => :error } %{1 => :ok, 2 => :error}
+iex> state
+:error
+```
+
+but not this:
+
+```sh
+iex> %{ item => :ok } = %{ 1 => :ok, 2 => :error }
+\*\* (CompileError) iex:5: illegal use of variable item in map key
+
+```
+
+#### Updating A Map
+
+Maps let us add new key/value entries and update existing entries without traversing the whole structure. But as with all values in Elixir, a map is immutable, and so the result of the update is a new map.
+The simplest way to update a map is with this syntax:
+
+new_map = %{ old_map | key => value, ... }
+
+This creates a new map that is a copy of the old, but the values associated
+with the keys on the right of the pipe character are updated
+
+```sh
+iex> m = %{ a: 1, b: 2, c: 3 }
+%{a: 1, b: 2, c: 3}
+iex> m1 = %{ m | b: "two", c: "three" } %{a: 1, b: "two", c: "three"}
+iex> m2 = %{ m1 | a: "one" }
+%{a: "one", b: "two", c: "three"}
+```
+
+### Structs
+
+Structs are maps with a predefined set of keys. They’re useful when you want
+to guarantee that a map has a specific set of keys, and when you want to
+attach a name to a map.
+
+They are a typed data structure , they have a name and a set of keys .
+
+```sh
+defmodule Subscriber do
+   defstruct name: "", paid: false, over_18: true
+end
+```
+
+Here , this is a struct called Subscriber , it has 3 keys , name , paid and over_18
+
+```sh
+
+$ iex defstruct.exs
+iex> s1 = %Subscriber{}
+%Subscriber{name: "", over_18: true, paid: false}
+ iex> s2 = %Subscriber{ name: "Dave" }
+ %Subscriber{name: "Dave", over_18: true, paid: false}
+ iex> s3 = %Subscriber{ name: "Mary", paid: true }
+ %Subscriber{name: "Mary", over_18: true, paid: true}
+ iex> s4 = %Subscriber{test: "Testing"}
+    (KeyError) key :test not found
+    expanding struct: Subscriber.__struct__/1
+    iex:3: (file)
+```
+
+The syntax for creating a struct is the same as the syntax for creating a map—you simply add the module name between the % and the {.
+You access the fields in a struct using dot notation or pattern matching:
+
+```sh
+iex> s3.name
+"Mary"
+iex> %Subscriber{name: a_name} = s3 %Subscriber{name: "Mary", over_18: true, paid: true}
+iex> a_name
+"Mary"
+```
+
+```sh
+defmodule Attendee do
+defstruct name: "", paid: false, over_18: true
+def may_attend_after_party(attendee = %Attendee{}) do attendee.paid && attendee.over_18
+end
+def print_vip_badge(%Attendee{name: name}) when name != "" do IO.puts "Very cheap badge for #{name}"
+end
+def print_vip_badge(%Attendee{}) do raise "missing name for badge"
+end
+end
+
+$ iex defstruct1.exs
+iex> a1 = %Attendee{name: "Dave", over_18: true} %Attendee{name: "Dave", over_18: true, paid: false} iex> Attendee.may_attend_after_party(a1)
+false
+iex> a2 = %Attendee{a1 | paid: true} %Attendee{name: "Dave", over_18: true, paid: true} iex> Attendee.may_attend_after_party(a2)
+true
+iex> Attendee.print_vip_badge(a2)
+Very cheap badge for Dave
+:ok
+iex> a3 = %Attendee{}
+%Attendee{name: "", over_18: true, paid: false} iex> Attendee.print_vip_badge(a3)
+** (RuntimeError) missing name for badge
+
+```
