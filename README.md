@@ -1444,3 +1444,306 @@ mix coveralls
 ```
 
 We get the test coverage
+
+## CONCURRENT PROGRAMMING AND PROCESSES
+
+Elixir’s key features is the idea of packaging code into small chunks
+that can be run independently and concurrently .
+
+Elixir uses the actor model of concurrency. An actor is an independent process
+that shares nothing with any other process. You can spawn new processes,
+send them messages, and receive messages back
+
+### A Simple Process
+
+#### Spawning A New Process
+
+Let us define this module
+
+```sh
+defmodule SpawnBasic do
+def greet do
+IO.puts "Hello"
+end
+end
+
+
+
+
+```
+
+When we run this through iex and call SpawnBasic.greet , we get the output
+
+```sh
+
+iex> SpawnBasic.greet
+Hello
+:ok
+
+```
+
+Now let’s run it in a separate process:
+
+```sh
+iex> spawn(SpawnBasic, :greet, [])
+Hello
+#PID<0.42.0>
+```
+
+The spawn function kicks off a new process and it returns a process identifier, normally called a PID. This uniquely identifies the process it creates
+
+#### Sending Messages Between Processes
+
+In Elixir we send a message using the send function. It takes a PID and the
+message to send (an Elixir value, which we also call a term) on the right
+We wait for messages using receive
+Inside the block associated with the
+receive call, you can specify any number of patterns and associated actions.
+Just as with case, the action associated with the first pattern that matches
+the function is run
+
+This operation is done using the send function and the receive do operator.
+
+```sh
+
+processId = self()
+spawn fn -> send(processId, {:hello, "Message sent and received"}) end
+receive do
+  {:hello, msg} -> IO.puts msg
+end
+
+```
+
+In this way , the flow is you spawn , send , then receive.
+
+#### When Processes Die
+
+Who gets told when a process dies? By default, no one. Obviously the VM
+knows and can report it to the console, but your code will be oblivious unless
+you explicitly tell Elixir you want to get involved
+
+We can have this
+
+```sh
+ def sad_function do
+    sleep(500)
+    exit(:boom)
+  end
+
+  def run do
+    spawn(Spawn1, :sad_function, [])
+
+    receive do
+      msg ->
+        IO.puts("MESSAGE RECEIVED: #{inspect(msg)}")
+    after
+      1000 ->
+        IO.puts("Nothing happened as far as I am concerned")
+    end
+  end
+```
+
+When we call the run function , we get
+
+```sh
+Nothing happened as far as I am concerned
+```
+
+The top level got no notification when the spawned process exited
+
+### Linking Processes
+
+When processes are linked, each can receive information when the other exits.
+Linking processes together is more like binding them together in a death pact. The pact says that if one process dies, all the processes linked to it will also die.
+The two function primitives for linking processes are spawn_link/1,3 and Process.link/1. The former takes arguments to launch a new process and link to it at the same time, while the latter accepts a PID to perfrom the link.
+
+Starting with spawn_link, we can use it in the run function we used above and observe its behaviour
+
+```sh
+def run_linked do
+    spawn_link(Spawn1, :sad_function, [])
+
+    receive do
+      msg ->
+        IO.puts("MESSAGE RECEIVED: #{inspect(msg)}")
+    after
+      1000 ->
+        IO.puts("Nothing happened as far as I am concerned")
+    end
+  end
+
+
+
+```
+
+When we call the run function , we get
+
+```sh
+Nothing happened as far as I am concerned
+```
+
+Let us look at how we can also structure spawn_link
+
+```sh
+iex > pid = spawn_link(fn -> receive do :crash -> 1 / 0 end end)
+#PID<0.131.0>
+
+iex > send(pid, :crash)
+** (EXIT from #PID<0.118.0>) shell process exited with reason: an exception was raised:
+``
+```
+
+The anonymous function we provide spawn_link/1 does nothing except wait for a specific message: :crash. All other messages are stored safely in its mailbox, but when a :crash message is sent, it matches against it and attempts to divide 1 by 0, summarily throwing an ArithmeticError exception. The exception kills the process and the linked IEx process with it.
+
+We can use spawn_link/3 as
+
+```sh
+iex > defmodule Crashy do
+... >   def run do
+... >     receive do
+... >       :crash -> 1 / 0
+... >     end
+... >   end
+... > end
+
+iex > pid = spawn_link(Crashy, :run, [])
+#PID<0.148.0>
+
+iex > send pid, :crash
+```
+
+Process.link/1
+Unlike spawn_link/1,3, Process.link/1 accepts the PID of an existing process,
+
+```sh
+iex > pid = spawn(fn -> receive do :crash -> raise "boom" end end)
+
+iex > Process.link(pid)
+true
+
+iex > send pid, :crash
+** (EXIT from #PID<0.127.0>) shell process exited with reason: an exception was
+raised:
+    ** (RuntimeError) boom
+        (stdlib) erl_eval.erl:678: :erl_eval.do_apply/6
+
+```
+
+If we were to send :crash to our spawned process, it would raise an exception and die, but our existing IEx process would be fine. If we called Process.link(pid) before sending the :crash message, however, we’ll see output much like what we saw with spawn_link/1,3.
+
+### Trapping Exits
+
+Reference - https://samuelmullen.com/articles/elixir-processes-linking-and-monitoring
+
+When processes are linked, “If [any] process terminates for whatever reason, an exit signal is propagated to all the processes it’s linked to .Elixir allows us to “trap” that exit signal, converting it to a three-tuple message instead.
+
+When trap_exit is set to “true”, exit signals arriving to a process are converted to {'EXIT', From, Reason} messages, which can be received as ordinary messages. If trap_exit is set to “false”, the process exits if it receives an exit signal other than normal and the exit signal is propagated to its linked processes. Application processes are normally not to trap exits.
+
+If we have
+
+```sh
+defmodule Crashy do
+  def run do
+    Process.flag(:trap_exit, true)
+    spawn_link(Crashy, :splode, [])
+
+    receive do
+      {signal, pid, msg} ->
+        IO.inspect signal
+        IO.inspect pid
+        IO.inspect msg
+    end
+  end
+
+  def splode do
+    exit :kaboom
+  end
+end
+```
+
+Now when we run this , we get
+
+```sh
+iex > Crashy.run
+:EXIT
+#PID<0.178.0>
+:kaboom
+
+```
+
+Instead of the exception messages we’ve seen so far in our examples, we’re now able to capture the exit signal and do something about it.
+
+### Monitoring Processes
+
+If linking processes is like a couple who’ve grown old together and can’t live without the other, monitoring processes is like reading the obituaries: you know who’s died and you might feel bad about it, but it doesn’t affect you much beyond that.
+
+With the exception of the return values and function name, there’s very little difference between linking to a process and monitoring one. Just replace “link” in spawn_link/1,3 and Process.link with “monitor” and you’re almost done. The real difference between linking and monitoring is how processes handle the death of processes to which they’re connected.
+
+The goal of monitoring processes is to ensure a process knows about the termination of another process
+
+spawn_monitor/1,3
+Like its cousin, spawn_link/1,3, spawn_monitor/1,3 is atomic in its execution. Also, like its cousin, it can be called by either passing a function or an MFA. Unlike spawn_link, however, spawn_monitor returns a two-element tuple containing the PID and reference to the spawned process.
+
+```sh
+iex > {pid, ref} = spawn_monitor(fn -> receive do :crash -> exit :kaboom end end)
+{#PID<0.110.0>, #Reference<0.3864886318.2185232385.215284>}
+
+```
+
+Having spawned and begun monitoring the process, let’s see what happens when the process is killed:
+
+```sh
+iex > send(pid, :crash)
+:crash
+
+iex > flush
+{:DOWN, #Reference<0.3864886318.2185232385.215284>, :process, #PID<0.110.0>,
+ :kaboom}
+:ok
+```
+
+If you were to check the PID of the IEx session before and after, you would see it was the same. spawn_monitor/3 is much the same
+
+```sh
+iex > defmodule Crashy do
+iex >   def run do
+iex >     receive do
+iex >       :crash -> exit :kaboom
+iex >     end
+iex >   end
+iex > end
+
+iex > {pid, ref} = spawn_monitor(Crashy, :run, [])
+{#PID<0.124.0>, #Reference<0.3864886318.2185232385.215530>}
+
+iex > send(pid, :crash)
+:crash
+
+iex > flush
+{:DOWN, #Reference<0.3864886318.2185232385.215530>, :process, #PID<0.124.0>,
+ :kaboom}
+:ok
+
+```
+
+Process.monitor/1
+Like Process.link/1, Process.monitor/1 accepts the PID of an existing process. Instead of returning true, however, Process.monitor/1 returns a reference to the monitored process.
+
+```sh
+iex > pid = spawn(fn -> receive do :add -> IO.puts 1 + 2 end end)
+#PID<0.137.0>
+
+iex > ref = Process.monitor(pid)
+#Reference<0.3439345400.1300496390.106497>
+
+iex > send(pid, :add)
+3
+:add
+
+iex > flush
+{:DOWN, #Reference<0.3439345400.1300496390.106497>, :process, #PID<0.137.0>,
+
+ :normal}
+:ok
+
+```
