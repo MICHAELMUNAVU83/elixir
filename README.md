@@ -1747,3 +1747,435 @@ iex > flush
 :ok
 
 ```
+
+<!-- read fibonachi -->
+
+### Nodes
+
+In Elixir, a Node could be defined as a single running instance. There can be multiple nodes running on a single machine.
+
+#### Naming Nodes
+
+We can set the name of a node when we start it. With IEx, use either the --name
+or --sname option. The former sets a fully qualified name
+
+## OTP SERVERS
+
+OTP stands for Open Telecom Platform. It is based on Erlang and contains a huge set of libraries from BEAM that follow system design principles. In the core of OTP, we have processes which make Elixir very efficient.
+
+An application
+consists of one or more processes. These processes follow one of a small
+number of OTP conventions, called behaviors. There is a behavior used for
+general-purpose servers, one for implementing event handlers, and one for
+finite-state machines.
+
+A special behavior, called supervisor, monitors the health of these processes
+and implements strategies for restarting them if needed
+
+Let us build our first OTP server
+
+`mix new sequence`
+
+Create the Basic Sequence Server
+Now we’ll create Sequence.Server, our server module. Move into the sequence
+directory, and create a subdirectory under lib/ also called sequence.
+
+Add the file server.ex to lib/sequence/:
+
+```sh
+defmodule Sequence.Server do
+  use GenServer
+
+  def init(initial_number) do
+    {:ok, initial_number}
+  end
+
+  def handle_call(:next_number, _from, current_number) do
+    {:reply, current_number, current_number + 1}
+  end
+end
+
+
+```
+
+The use line effectively adds the OTP GenServer behavior to our module
+
+The init function takes some initial value
+and uses it to construct the state of the server
+
+When a client calls our server, GenServer invokes its handle_call function. This
+function receives three parameters:
+
+1. The information the client passed to the call
+2. The PID of the client
+3. The server state
+
+When the handle_call function exits, it must return the state (updated or not).
+
+Testing this server , we see
+
+```sh
+$ iex -S mix
+iex> { :ok, pid } = GenServer.start_link(Sequence.Server, 100)
+{:ok,#PID<0.71.0>}
+iex> GenServer.call(pid, :next_number)
+100
+iex> GenServer.call(pid, :next_number)
+101
+iex> GenServer.call(pid, :next_number)
+102
+```
+
+The start_link function
+behaves like the spawn_link function we used in the previous chapter. It asks
+GenServer to start a new process and link to us (so we’ll get notifications if it
+fails).
+
+We pass in the module to run as a server: the initial state and we could also pass GenServer options as a third parameter .
+
+GenServer.call/2
+
+                   def call(server, request, timeout \\ 5000)
+
+Makes a synchronous call to the server and waits for its reply.
+
+### One Way Calls
+
+The call function calls a server and waits for a reply. But sometimes you won’t
+want to wait because there is no reply coming back. In those circumstances,
+use the GenServer cast function. (Think of it as casting your request into the
+sea of servers.)
+
+Just like call is passed to handle_call in the server, cast is sent to handle_cast.
+Because there’s no response possible, the handle_cast function takes only two
+parameters: the call argument and the current state. And because it doesn’t
+want to send a reply, it will return the tuple {:noreply, new_state}.
+
+The syntax is as
+
+```sh
+def handle_cast(:pop, current_loop) do
+  {:noreply, Enum.drop(current_loop, -1)}
+end
+
+iex(33)> GenServer.cast(pid, :pop)
+:ok
+
+```
+
+### Tracing a Server’s Execution
+
+The third parameter to start_link is a set of options. A useful one during development is the debug trace, which logs message activity to the console.
+
+We enable tracing using the debug option:
+
+```sh
+➤ iex> {:ok,pid} = GenServer.start_link(Sequence.Server, 100, [debug: [:trace]])
+{:ok,#PID<0.68.0>}
+
+```
+
+```sh
+
+iex(37)> {:ok, pid} = GenServer.start*link(Sequence.Server, [1,2,3],[debug: [:trace]])
+{:ok, #PID<0.292.0>}
+iex(38)> GenServer.call(pid, :pop)
+\_DBG* <0.292.0> got call pop from <0.290.0>
+_DBG_ <0.292.0> sent [1,2,3] to <0.290.0>, new state [1,2]
+
+```
+
+See how it traces the incoming call and the response we send back. A nice
+touch is that it also shows the next state
+
+We can also include :statistics in the debug list to ask a server to keep some
+basic statistics:
+
+```sh
+iex(41)> {:ok, pid} = GenServer.start_link(Sequence.Server, [1,2,3],[debug: [:statistics]])
+{:ok, #PID<0.294.0>}
+iex(42)> GenServer.call(pid, :pop)
+[1, 2, 3]
+iex(43)> :sys.statistics pid, :get
+{:ok,
+ [
+   start_time: {{2023, 12, 29}, {14, 14, 34}},
+   current_time: {{2023, 12, 29}, {14, 14, 58}},
+   reductions: 83,
+   messages_in: 1,
+   messages_out: 1
+ ]}
+iex(44)>
+```
+
+### GenServer Callbacks
+
+When you add the line ‘use GenServer‘ to a module, Elixir creates default
+implementations of these six callback functions. All we have to do is override
+the ones where we add our own application-specific behavior
+Let us look at these
+
+#### init(start_arguments)
+
+Called by GenServer when starting a new server. The parameter is the
+second argument passed to start_link. It should return {:ok, state} on success,
+or {:stop, reason} if the server could not be started.
+
+#### handle_call(request, from, state)
+
+Invoked when a client uses GenServer.call(pid, request). The from parameter is
+a tuple containing the PID of the client and a unique tag. The state
+parameter is the server state.
+On success it returns {:reply, result, new_state}.
+
+#### handle_cast(request, state)
+
+Called in response to GenServer.cast(pid, request).
+A successful response is {:noreply, new_state}. It can also return {:stop, reason,
+new_state}.
+
+#### handle_info(info, state)
+
+Called to handle incoming messages that are not call or cast requests.
+For example, timeout messages are handled here.
+
+#### terminate(reason, state)
+
+Called when the server is about to be terminated\
+
+#### code_change(from_version, state, extra)
+
+Updates a running server without stopping the system. However, the new
+version of the server may represent its state differently from the old version
+
+#### format_status(reason, [pdict, state])
+
+Used to customize the state display of the server. The conventional
+response is [data: [{'State', state_info}]].
+
+### Naming A Process
+
+The simplest is local naming. We assign a name that is unique for all OTP
+processes on our node, and then we use that name instead of the PID whenever we reference it.
+
+```sh
+iex> { :ok, pid } = GenServer.start_link(Sequence.Server, 100, name: :seq)
+{:ok,#PID<0.58.0>}
+iex> GenServer.call(:seq, :next_number)
+100
+iex> GenServer.call(:seq, :next_number)
+101
+iex> :sys.get_status :seq
+{:status, #PID<0.69.0>, {:module, :gen_server},
+[["$ancestors": [#PID<0.58.0>],
+"$initial_call": {Sequence.Server, :init, 1}],
+:running, #PID<0.58.0>, [],
+[header: 'Status for generic server seq',
+data: [{'Status', :running},
+{'Parent', #PID<0.58.0>},
+{'Logged events', []}],
+data: [{'State', "My current state is '102', and I'm happy"}]]]}
+```
+
+We can tidy upour code by having a set of two
+functions in our server module: start_link and pop_number. The
+first of these calls the GenServer start_link method. As we’ll see in the next
+chapter, the name start_link is a convention. start_link must return the correct
+status values to OTP; as our code simply delegates to the GenServer module,
+this is taken care of.
+
+```sh
+defmodule Sequence.Server do
+  use GenServer
+
+  def start_link(current_number) do
+    GenServer.start_link(__MODULE__, current_number, name: __MODULE__)
+  end
+
+  def pop_last do
+    GenServer.call(__MODULE__, :pop_last)
+  end
+
+  def pop_first do
+    GenServer.cast(__MODULE__, :pop_first)
+  end
+
+  # GenServer implementation
+  def init(inital_state) do
+    {:ok, inital_state}
+  end
+
+  def handle_call(:pop_last, _from, current_loop) do
+    {:reply, current_loop, Enum.drop(current_loop, -1)}
+  end
+
+  def handle_cast(:pop_first, current_loop) do
+    {:noreply, Enum.drop(current_loop, 1)}
+  end
+end
+
+```
+
+When we run this code in IEx, it’s a lot cleaner:
+
+```sh
+iex(1)> Sequence.Server.start_link ([1,2,3])
+{:ok, #PID<0.135.0>}
+iex(2)> Sequence.Server.pop_last
+[1, 2, 3]
+iex(3)> Sequence.Server.pop_last
+[1, 2]
+iex(4)> Sequence.Server.pop_first
+:ok
+iex(5)>
+```
+
+### OTP Supervisors
+
+The supervisor is a process that monitors other processes and restarts them if they crash. It’s a key part of the OTP framework, and it’s used to build fault-tolerant systems.
+You can write supervisors as separate modules, but the Elixir style is to
+include them inline. The easiest way to get started is to create your project
+with the --sup flag. Let’s do this for our sequence server.
+The only apparent difference is the appearance of the file lib/sequence/application
+Looking at this file , we see .
+
+```sh
+defmodule Sequence.Application do
+# See https://hexdocs.pm/elixir/Application.html
+# for more information on OTP Applications
+@moduledoc false
+
+use Application
+
+@impl true
+def start(_type, _args) do
+  children = [
+    # Starts a worker by calling: Sequence.Worker.start_link(arg)
+    # {Sequence.Worker, arg}
+  ]
+
+  # See https://hexdocs.pm/elixir/Supervisor.html
+  # for other strategies and supported options
+  opts = [strategy: :one_for_one, name: Sequence.Supervisor]
+  Supervisor.start_link(children, opts)
+end
+end
+
+```
+
+Our start function now creates a supervisor for our application. All we need
+to do is tell it what we want supervised.
+
+Let us add a new file that contains the previous server code we had written and call it sequence/server.ex
+
+```sh
+defmodule Sequence.Server do
+use GenServer
+
+def start_link(current_number) do
+  GenServer.start_link(__MODULE__, current_number, name: __MODULE__)
+end
+
+def pop_last do
+  GenServer.call(__MODULE__, :pop_last)
+end
+
+def pop_first do
+  GenServer.cast(__MODULE__, :pop_first)
+end
+
+# GenServer implementation
+def init(inital_state) do
+  {:ok, inital_state}
+end
+
+def handle_call(:pop_last, _from, current_loop) do
+  {:reply, current_loop, Enum.drop(current_loop, -1)}
+end
+
+def handle_cast(:pop_first, current_loop) do
+  {:noreply, Enum.drop(current_loop, 1)}
+end
+end
+
+```
+
+Now , we can edit the sequence/application.ex file to have the server as part of its children.
+
+```sh
+  children = [
+      # Starts a worker by calling: Sequence.Worker.start_link(arg)
+      {Sequence.Server, [1, 2, 3]}
+    ]
+```
+
+Let’s look at what’s going to happen:
+• When our application starts, the start function is called.
+• It creates a list of child server modules. In our case, there’s just one, the
+Sequence.Server. Along with the module name, we specify an argument to
+be passed to the server when we start it.
+• We call Supervisor.start_link, passing it the list of child specifications and a
+set of options. This creates a supervisor process.
+• Now our supervisor process calls the start_link function for each of its
+managed children. In our case, this is the function in Sequence.Server. This
+code is unchanged—it calls GenServer.start_link to create a GenServer process
+
+Now we can try it , what is different this time is that we do not have to start our GenServer manually , once the application starts , the supervisor starts the GenServer
+
+```sh
+
+iex(1)> Sequence.Server.pop_last
+[1, 2, 3]
+iex(2)> Sequence.Server.pop_last
+[1, 2]
+iex(3)>
+
+
+
+```
+
+The key thing with a supervisor is that it is supposed to
+manage our worker process. If it dies, for example, we want it to be restarted.
+
+Let us add a functions that adds half the number passed to the list.
+
+```sh
+def add_half(number) do
+  GenServer.cast(__MODULE__, {:add_half, number})
+end
+
+def handle_cast({:add_half, number}, current_loop) do
+  {:noreply, [number / 2 | current_loop]}
+end
+```
+
+Now if we test this out
+
+```sh
+iex(14)> Sequence.Server.add_half(8)
+:ok
+iex(15)> Sequence.Server.add_half("word")
+:ok
+
+15:07:58.475 [error] GenServer Sequence.Server terminating
+\*\* (ArithmeticError) bad argument in arithmetic expression
+(sequence 0.1.0) lib/server.ex:30: Sequence.Server.handle_cast/2
+(stdlib 5.0.2) gen_server.erl:1103: :gen_server.try_handle_cast/3
+(stdlib 5.0.2) gen_server.erl:1165: :gen_server.handle_msg/6
+(stdlib 5.0.2) proc_lib.erl:241: :proc_lib.init_p_do_apply/3
+Last message: {:"$gen_cast", {:add_half, "word"}}
+State: [4.0, 1, 2]
+iex(16)> Sequence.Server.pop_last
+[1, 2, 3]
+iex(17)>
+
+```
+
+Now if we run this , we see that the server crashes and the supervisor restarts it and we get the initial state .
+The supervisor restarted our sequence
+process with the initial parameters we passed in, and the numbers started
+again from [1,2,3]. A reincarnated process has no memory of its past lives, and
+no state is retained across a crash.
+
+
+#### Managing A Process Across Restarts
