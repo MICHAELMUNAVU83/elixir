@@ -2177,5 +2177,261 @@ process with the initial parameters we passed in, and the numbers started
 again from [1,2,3]. A reincarnated process has no memory of its past lives, and
 no state is retained across a crash.
 
-
 #### Managing A Process Across Restarts
+
+Our server has a state , and after any crash it restarts and the state goes back to its initial setting , we would however prefer having a way of recovering our last stable state before our server crashed and have it restart as such .
+
+All of the approaches to this involve storing the state outside of the process.
+Let’s choose a simple option—we’ll write a separate process that can store
+and retrieve a value. We’ll call it our stash. The sequence server can store its
+current number in the stash whenever it terminates, and then we can recover
+the number when we restart.
+
+We will create a stash server , whose function will be to store a single array , our last stable array
+
+/lib/stash.ex
+
+```sh
+defmodule Sequence.Stash do
+  use GenServer
+
+  def start_link(current_loop) do
+    GenServer.start_link(__MODULE__, current_loop, name: __MODULE__)
+  end
+
+  def get do
+    GenServer.call(__MODULE__, :get)
+  end
+
+  def update(new_loop) do
+    GenServer.cast(__MODULE__, {:update, new_loop})
+  end
+
+  # Server implementation
+  def init(current_loop) do
+    {:ok, current_loop}
+  end
+
+  def handle_call(:get, _from, current_loop) do
+    {:reply, current_loop, current_loop}
+  end
+
+  def handle_cast({:update, new_loop}, _current_number) do
+    {:noreply, new_loop}
+  end
+end
+
+```
+
+Now we want to supervise it. It’ll be running alongside the sequence server:
+
+There are many supervision strategies that elixir has for linked servers in case one of them crashes
+
+##### :one_for_one
+
+if a server dies, the supervisor will restart it. This is the default strategy.
+
+##### :one_for_all
+
+if a server dies, all the remaining servers are first terminated, and then
+the servers are all restarted.
+
+##### :rest_for_one
+
+if a server dies, the servers that follow it in the list of children are terminated, and then the dying server and those that were terminated are
+restarted.
+
+If we use :one_for_one, a failing
+sequence server will restart, and the stash will not be affected. If we use
+:rest_for_one, the same thing will happen, but only if the sequence server follows
+the stash in the list of children.
+
+Let’s add the stash and update the supervision strategy in our supervisor
+startup code
+
+```sh
+def start(_type, _args) do
+    children = [
+      # Starts a worker by calling: Sequence.Worker.start_link(arg)
+      {Sequence.Stash, [1, 2, 3]},
+      {Sequence.Server, []}
+    ]
+
+    # See https://hexdocs.pm/elixir/Supervisor.html
+    # for other strategies and supported options
+    opts = [strategy: :rest_for_one, name: Sequence.Supervisor]
+    Supervisor.start_link(children, opts)
+  end
+```
+
+Finally, we need to change our sequence server to use this stash
+
+Handling the sequence server
+exiting involves writing another callback, terminate which will update the state of our stash server.
+
+```sh
+defmodule Sequence.Server do
+  use GenServer
+
+  def start_link(_) do
+    GenServer.start_link(__MODULE__, [], name: __MODULE__)
+  end
+
+  def pop_last do
+    GenServer.call(__MODULE__, :pop_last)
+  end
+
+  def pop_first do
+    GenServer.cast(__MODULE__, :pop_first)
+  end
+
+  def add_half(number) do
+    GenServer.cast(__MODULE__, {:add_half, number})
+  end
+
+  # GenServer implementation
+  def init(_initial) do
+    {:ok, Sequence.Stash.get()}
+  end
+
+  def handle_call(:pop_last, _from, current_loop) do
+    {:reply, current_loop, Enum.drop(current_loop, -1)}
+  end
+
+  def handle_cast({:add_half, number}, current_loop) do
+    {:noreply, [number / 2 | current_loop]}
+  end
+
+  def handle_cast(:pop_first, current_loop) do
+    {:noreply, Enum.drop(current_loop, 1)}
+  end
+
+  def terminate(_reason, current_loop) do
+    Sequence.Stash.update(current_loop)
+  end
+end
+
+```
+
+### Worker Restart Options
+
+We’ve seen how the supervision strategy tells the supervisor how
+to deal with the death of a child process
+There’s a second level of configuration that applies to individual workers. The
+most commonly used of these is the :restart option.
+
+Previously we said that a supervisor strategy (such as :one_for_all) is invoked
+when a worker dies. That’s not strictly true. Instead, the strategy is invoked
+when a worker needs restarting. And the conditions when a worker should
+be restarted are dictated by its restart: option:
+
+##### :permanent
+
+This worker should always be running—it is permanent. This means that
+the supervision strategy will be applied whenever this worker terminates,
+for whatever reason.
+
+##### :temporary
+
+This worker should never be restarted, so the supervision strategy is
+never applied if this worker dies.
+
+##### :transient
+
+It is expected that this worker will at some point terminate normally, and
+this termination should not result in a restart. However, should this worker
+die abnormally, then it should be restarted by running the supervision
+strategy.
+
+The simplest way to specify the restart option for a worker is in the worker
+module. You add it to the use GenServer (or use Supervisor) line:
+
+```sh
+defmodule Convolver do
+use GenServer, restart: :transient
+```
+
+### A COMPLEX EXAMPLE(DESIGNING ELIXIR APPS)
+
+When designing elixir apps , we ask ourselves the following questions.
+• What is the environment and what are its constraints?
+• What are the obvious focal points?
+• What are the runtime characteristics?
+• What do I protect from errors?
+• How do I get this thing running?
+
+<!--
+read about  duper ( 264) -->
+
+## OTP APPLICATIONS
+
+In the OTP world, that’s not the case. Instead, an application is a bundle
+of code that comes with a descriptor. That descriptor tells the runtime what
+dependencies the code has, what global names it registers, and so on. In fact,
+an OTP application is more like a dynamic link library or a shared object than
+a conventional application
+It might help to see the word application in your head but pronounce it component or service.
+
+### Turning Our Sequence Program into an OTP Application
+
+When mix created the initial project tree, it added a supervisor (which we then modified) and enough information to our mix.exs file to get
+the application started.
+
+```sh
+ def application do
+    [
+      extra_applications: [:logger],
+      mod: {Sequence.Application, []}
+    ]
+  end
+```
+
+This says that the top-level module of our application is called Sequence. OTP
+assumes this module will implement a start function, and it will pass that
+function an empty list as a parameter.
+In our previous version of the start function, we ignored the arguments and
+instead hard-wired the call to start_link to pass [1,2,3] to our application. Let’s
+change that to take the value from mix.exs instead.
+
+```sh
+ def application do
+    [
+      extra_applications: [:logger],
+      mod: {Sequence.Application, [1, 2, 3]}
+    ]
+  end
+```
+
+Then change the application.ex code to use this passed-in value
+
+```sh
+def start(_type, args) do
+    children = [
+      # Starts a worker by calling: Sequence.Worker.start_link(arg)
+      {Sequence.Stash, args},
+      {Sequence.Server, []}
+    ]
+
+    # See https://hexdocs.pm/elixir/Supervisor.html
+    # for other strategies and supported options
+    opts = [strategy: :rest_for_one, name: Sequence.Supervisor]
+    Supervisor.start_link(children, opts)
+  end
+```
+
+Now if we test it out , it works.
+
+The mod: option tells OTP the module that is the main entry point for our app
+
+The registered: option lists the names that our application will register. We can
+use this to ensure each name is unique across all loaded applications in a
+node or cluster. In our case, the sequence server registers itself under the
+name Sequence.Server, so we’ll update the configuration to read as follows
+
+
+
+
+<!-- Read About Distillery -->
+
+
+

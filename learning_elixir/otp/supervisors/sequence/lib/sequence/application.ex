@@ -6,15 +6,16 @@ defmodule Sequence.Application do
   use Application
 
   @impl true
-  def start(_type, _args) do
+  def start(_type, args) do
     children = [
       # Starts a worker by calling: Sequence.Worker.start_link(arg)
-      {Sequence.Server, [1, 2, 3]}
+      {Sequence.Stash, args},
+      {Sequence.Server, []}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
-    opts = [strategy: :one_for_one, name: Sequence.Supervisor]
+    opts = [strategy: :rest_for_one, name: Sequence.Supervisor]
     Supervisor.start_link(children, opts)
   end
 end
