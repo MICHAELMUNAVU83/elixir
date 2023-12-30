@@ -2428,10 +2428,102 @@ use this to ensure each name is unique across all loaded applications in a
 node or cluster. In our case, the sequence server registers itself under the
 name Sequence.Server, so we’ll update the configuration to read as follows
 
-
-
-
 <!-- Read About Distillery -->
 
+## Tasks And Agents
 
+Elixir provides us nice wrappers around processes such as Agents and Tasks. Agents allow us to keep a state and Tasks help us to run processes in parallel.
 
+Imagine you have several jobs you need to do at the same time and the order of those jobs does not matter. For example, we need to update something in DataBase, send an Email and make a remote call to API. Those jobs can be somehow heavy and if you want to call them one by one the amount of time to accomplish them, would be the sum of the time required to accomplish every single job.
+
+Why would we spend so much time then?
+
+### Tasks
+
+With the Elixir tasks, we can run all these jobs in parallel and then collect the result (if we need it)
+
+To start a task we are using Task.async/1, which will run the function in the background and send a result of that function back as a payload of the message. Then we use Task.await to wait (if needed) and collect the result.
+
+```sh
+# task_example.ex
+defmodule TaskExample do
+  def db_update do
+    "DB update result"
+  end
+  def send_email do
+    {:ok, "Email has been sent"}
+  end
+  def notify_remote_api do
+    {:ok, "Notification has been sent"}
+  end
+end
+
+```
+
+Then fire up an iex session and play around.
+
+```sh
+iex> c "task_example.ex"
+iex> db_query = Task.async(fn -> TaskExample.db_update end)
+iex> email = Task.async(fn -> TaskExample.send_email end)
+iex> api = Task.async(fn -> TaskExample.notify_remote_api end)
+```
+
+At first, we are using Task.async/1 to create a separate process for every function we have. Once the process is started it does not block the execution of the next command, thus we can start the next process immediately.
+
+While we are waiting for the completion of the tasks we can do some other stuff as well.
+
+And finally, once we reached the point where we need to know the result of the tasks we can collect it using Task.await/1
+
+```sh
+iex> db_result = Task.await(db_query)
+"DB update result"
+iex> email_result = Task.await(email)
+{:ok, "Email has been sent"}
+iex> api_response = Task.await(api)
+{:ok, "Notification has been sent"}
+```
+
+One you use Task.async/1 to start a new process, you need to finish it with the Task.await/1. Those two functions work in pairs.
+
+Not every job requires the result back. For example, we might not care about the result of sending an email and/or notification of a remote API. In these cases, we want to run those jobs in the separate process and just forget about them.
+
+To do that we can use Task.start/1 function
+
+```sh
+iex> Task.start(fn ->
+...>   {:ok, response} = TaskExample.notify_remote_api
+...>   IO.puts response
+...> end)
+Notification has been sent
+{:ok, #PID<0.128.0>}
+
+```
+
+### Agents
+
+Agents are background processes which help us to maintain a state.
+
+The usage of an agent is pretty straightforward. We have the ability to spawn an agent with an initial value, update its state and read the state
+To start a new process Elixir provides us Agent.start/2 function. It accepts an anonymous function as a first argument and bunch of options as a second argument.
+
+We can interrogate the state using Agent.get, passing it the agent descriptor
+and a function. The agent runs the function on its current state and returns
+the result.
+We can also use Agent.update to change the state held by an agent. As with the
+get operator, we pass in a function. Unlike with get, the function’s result
+becomes the new state.
+
+```sh
+
+iex> { :ok, count } = Agent.start(fn -> 0 end)
+{:ok, #PID<0.69.0>}
+iex> Agent.get(count, &(&1))
+0
+iex> Agent.update(count, &(&1+1))
+:ok
+iex> Agent.update(count, &(&1+1))
+:ok
+iex> Agent.get(count, &(&1))
+2
+```
