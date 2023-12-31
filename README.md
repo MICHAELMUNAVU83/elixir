@@ -2527,3 +2527,245 @@ iex> Agent.update(count, &(&1+1))
 iex> Agent.get(count, &(&1))
 2
 ```
+
+## Macros and Code Evaluation
+
+There is a rule of thumb
+Never use a macro when you could use a function.
+Macros can extend module behavior by adding new functions through wrappers that behave similarly to inheritance in object-oriented programming (OOP).
+
+To extend a module, we use use
+
+The language comes with a function, quote, that also forces code to remain in
+its unevaluated form. quote takes a block and returns the internal representation of that block.
+
+```sh
+
+iex> quote do: 1
+1
+iex> quote do: 1.0
+1.0
+iex> quote do: [1,2,3]
+[1,2,3]
+```
+
+here’s a lightweight explanation of ‘use’ in elixir as I currently understand it.
+
+Use is a tool to reuse code just like require, import, and alias.
+Use simply calls the **using** macro defined in another module.
+The **using** macro allows you to inject code into another module.
+
+You can define a module with the **using** macro and any code inside of the quote block will be injected into the module. like so:
+
+if we have
+
+```sh
+defmodule App.Example do
+  defmacro __using__(opts) do
+    quote do
+      def hello do
+        "Hello, World!"
+      end
+      # code here will be injected into the module that uses this macro
+    end
+  end
+end
+
+```
+
+and another module
+
+```sh
+defmodule App do
+  use App.Example
+
+  def hello do
+    hello()
+  end
+end
+
+```
+
+Why ‘use’ Instead of Import?
+Looking at the above example, you might wonder why you should use ‘use’ instead of import. Import allows you to import all of the functions from a module
+However, ‘use’ allows you to inject more than just functions, you can also inject other alias’s, imports, and even inject other ‘use’ modules.
+
+## Protocols—Polymorphic Functions
+
+Protocols are a means of achieving polymorphism in Elixir. One pain of Erlang is extending an existing API for newly defined types. To avoid this in Elixir the function is dispatched dynamically based on the value’s type.
+
+Elixir comes with a number of protocols built in, for example the String.Chars protocol is responsible for the to_string/1 function we’ve seen used previously. Let’s take a closer look at to_string/1 with a quick example:
+
+```sh
+iex(2)> to_string(5)
+"5"
+iex(3)> to_string(12.5)
+"12.5"
+iex(4)> to_string(12.5)
+"12.5"
+iex(5)> to_string("foo")
+"foo"
+```
+
+As you can see we’ve called the function on multiple types and demonstrated that it works on them all. What if we call to_string/1 on tuples (or any type that hasn’t implemented String.Chars)? Let’s se
+
+```sh
+iex(6)> to_string({:foo})
+** (Protocol.UndefinedError) protocol String.Chars not implemented for {:foo} of type Tuple
+    (elixir 1.15.7) lib/string/chars.ex:3: String.Chars.impl_for!/1
+    (elixir 1.15.7) lib/string/chars.ex:22: String.Chars.to_string/1
+    iex:6: (file)
+
+```
+
+To create an implementation we’ll use defimpl with our protocol, and provide the :for option, and our type. Let’s take a look at how it might look:
+
+```sh
+defimpl String.Chars, for: Tuple do
+  def to_string(tuple) do
+    interior =
+      tuple
+      |> Tuple.to_list()
+      |> Enum.map(&Kernel.to_string/1)
+      |> Enum.join(", ")
+
+    "{#{interior}}"
+  end
+end
+
+```
+
+If we copy this into IEx we should be now be able to call to_string/1 on a tuple without getting an error:
+
+```sh
+iex(7)> to_string({9.2})
+"{9.2}"
+```
+
+You can define implementations for one or more of the following types:
+Any Atom BitString Float Function
+Integer List Map PID Port
+Record Reference Tuple
+
+## Multi-app Umbrella Projects
+
+Sometimes a project can get big, really big in fact. The Mix build tool allows us to split our code into multiple apps and make our Elixir projects more manageable as they grow.
+
+To create an umbrella project we start a project as if we were going to start a normal Mix project but pass in the --umbrella
+
+Compared to a normal mix project, the umbrella is pretty lightweight—just
+a mix file and an apps directory.
+
+As you can see from the shell command, Mix created a small skeleton project for us with two directories:
+
+apps/ - where our sub (child) projects will reside
+config/ - where our umbrella project’s configuration will live
+
+Subprojects are stored in the apps directory. There’s nothing special about
+them—they are simply regular projects created using mix new. Let’s create our
+two projects now:
+
+```sh
+cd eval/apps
+$ mix new line_sigil
+* creating README.md
+... and so on
+$ mix new evaluator
+* creating README.md
+```
+
+## Exceptions: raise and try, catch and throw
+
+Use exceptions for things that are exceptional—things that should never
+happen.
+Exceptions do exist. This section is an overview of how to generate them
+and how to catch them when they occur
+
+### Raising an Exception
+
+You can raise an exception using the raise function. At its simplest, you pass
+it a string and it generates an exception of type RuntimeError.
+
+```sh
+iex(1)> raise "I am Tired"
+** (RuntimeError) I am Tired
+    iex:1: (file)
+
+```
+
+You can also pass the type of the exception, along with other optional fields.
+All exceptions implement at least the message field.
+
+```sh
+raise RuntimeError, message: "override message"
+```
+
+You can intercept exceptions using the try function. It takes a block of code
+to execute, and optional rescue, catch, and after clauses.
+The rescue and catch clauses look a bit like the body of a case function—they
+take patterns and code to execute if the pattern matches. The subject of the
+pattern is the exception that was raised.
+Here’s an example of exception handling in action.
+
+#### catch, exit, and throw
+
+```sh
+defmodule Catch do
+def start(n) do
+try do
+incite(n)
+catch
+:exit, code -> "Exited with code #{inspect code}"
+:throw, value -> "throw called with #{inspect value}"
+what, value -> "Caught #{inspect what} with #{inspect value}"
+end
+end
+defp incite(1) do
+exit(:something_bad_happened)
+end
+defp incite(2) do
+throw {:animal, "wombat"}
+end
+defp incite(3) do
+:erlang.error "Oh no!"
+end
+end
+```
+
+### Type Specifications and Type Checking
+
+Elixir type specifications come from Erlang. It is very common to see Erlang
+code where every exported (public) function is preceded by a -spec line. This
+is metadata that gives type information
+
+#### Specifying a Type
+
+A type is simply a subset of all possible values in a language. For example,
+the type integer means all the possible integer values, but excludes lists,
+binaries, PIDs, and so on.
+The basic types in Elixir are as follows: any, atom, float, fun, integer, list, map,
+maybe_improper_list, none, pid, port, reference, struct, and tuple.
+
+##### Collection Types
+
+A list is represented as [type], where type is any of the basic or combined
+types. This notation does not signify a list of one element—it simply says that
+elements of the list will be of the given type. If you want to specify a
+nonempty list, use [type, ...].
+
+##### Combining Types
+
+The range operator (..) can be used with literal integers to create a type representing that range.
+
+##### Structures
+
+As structures are basically maps, you could just use the map type for them,
+but doing so throws away a lot of useful information. Instead, I recommend
+that you define a specific type for each struct:
+
+```sh
+defmodule LineItem do
+    defstruct sku: "", quantity: 1
+    @type t :: %LineItem{sku: String.t, quantity: integer}
+end
+```
