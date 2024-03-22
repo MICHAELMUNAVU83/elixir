@@ -2774,4 +2774,5 @@ end
 ## ARTICLES
 
 https://fly.io/phoenix-files/live-session/
+https://staknine.com/exception-monitoring-elixir-phoenix-sentry/
 ```
