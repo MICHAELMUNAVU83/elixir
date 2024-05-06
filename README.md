@@ -2776,4 +2776,5 @@ end
 https://fly.io/phoenix-files/live-session/
 https://staknine.com/exception-monitoring-elixir-phoenix-sentry/
 https://hashrocket.com/blog/posts/ecto-migrations-simple-to-complex
+https://alexanderzeitler.com/articles/installing-latest-elixir-erlang-version-on-xubuntu-ubuntu-lts-22.04-asdf/
 ```
